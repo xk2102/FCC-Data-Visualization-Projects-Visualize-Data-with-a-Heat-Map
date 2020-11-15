@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualize Data with a Heat Map</title>
+    <!--jQuery CDN-->
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+    <!--D3 CDN-->
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <link rel="shortcut icon" href="#" />
+    <!--GOOGLE FONTS-->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+    <!--FA-->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.12.1/css/all.min.css">
+    <style>
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            margin: 0;
+            font-family: "Roboto Mono", monospace;
+        }
+        section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            border: 0px solid black;
+        }
+        nav {
+            position: fixed;
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%);
+            border: 0px solid black;
+        }
+        nav a {
+            border: 4px solid black;
+            border-radius: 50%;
+            display: block;
+            margin: 10px;
+            height: 30px;
+            width: 30px;
+        }
+        
+        #page-1,
+        nav a:nth-of-type(1) {
+            background-color: #fc5c65; 
+        }
+        #page-2,
+        nav a:nth-of-type(2) {
+            background-color: #eb3b5a;
+        }
+        a {
+            text-decoration: none;
+            color: rgb(0, 0, 0);
+        }
+
+        #tooltip{
+            border: 2px solid black;
+        }
+
+    </style>
+</head>
+<body>
+    <script src="https://cdn.freecodecamp.org/testable-projects-fcc/v1/bundle.js"></script>
+    
+    <nav>
+        <a href="#page-1"></a>
+        <a href="#page-2"></a>
+    </nav>
+    
+    <section id="page-1">
+        <h1 id="title">Monthly Global Land-Surface Temperature</h1>
+        <h4 id="description">1753 - 2015: base temperature 8.66℃</h4>
+        <main></main> 
+    </section>
+    <section id="page-2"> 
+        Made by me. <br>
+        <a href="https://www.christoskipouros.com">www.christoskipouros.com</a>
+
+    </section>
+    
+</body>
+</html>
+
+<script>
+    
+    var url = 'https://raw.githubusercontent.com/FreeCodeCamp/ProjectReferenceData/master/global-temperature.json';
+
+    d3.json(url).then(data => {
+        doStuff(data);
+    })
+
+    function doStuff(data){
+        
+        var baseTemp = data.baseTemperature;
+        var monthlyVariance = data.monthlyVariance.map(function(d){
+            return {year: d.year,
+                    month: d.month-1,//0-11
+                    variance: d.variance}
+        });//monthlyVariance
+
+        console.log(baseTemp);
+        console.log(monthlyVariance)
+
+        var w = 1000, h = 500;
+        var m = {top: 50, left: 75, bottom: 50, right: 50}
+        
+        var innerH = h - m.top - m.bottom;
+        var innerW = w - m.right - m.left;
+
+        var minYear = d3.min(monthlyVariance, function(d){
+            return d.year;
+        });
+        var maxYear = d3.max(monthlyVariance, function(d){
+            return d.year;
+        });
+        var minMonth = d3.min(monthlyVariance, function(d){
+            return d.month;//0
+        });
+        var maxMonth = d3.max(monthlyVariance, function(d){
+            return d.month;//11
+        });
+        var minVariance = d3.min(monthlyVariance, function(d){
+            return d.variance;
+        });
+        var maxVariance = d3.max(monthlyVariance, function(d){
+            return d.variance;
+        });
+        
+        console.log('minYear: ' + minYear + ' is a ' +  typeof minYear)
+        console.log('maxYear: ' + maxYear)
+        console.log('minMonth: ' + minMonth + ' is a ' +  typeof minMonth)
+        console.log('maxMonth: ' + maxMonth)
+        console.log('minVariance: ' + minVariance + ' is a ' +  typeof minVariance)
+        console.log('maxVariance: ' + maxVariance)
+
+        var monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+        function getMonthName(month){
+            return monthNames[month];
+        }
+        
+         //years
+         var xScale = d3.scaleLinear()
+                        .domain([minYear, maxYear])
+                        .range([0, innerW]);
+        //months
+        var yScale = d3.scaleLinear()
+                       .domain([minMonth, maxMonth])//0-11
+                       .range([0, innerH]);
+        //color
+        var colorScale = d3.scaleLinear()
+                       .domain([minVariance, maxVariance])
+                       .range(['black', 'white']);
+
+        var xAxis = d3.axisBottom(xScale).tickFormat(d3.format('.4'));
+        var yAxis = d3.axisLeft(yScale)
+                      .tickFormat(function (d) {
+                            return getMonthName(d);
+                        });
+
+        var svg = d3.select('main')
+                    .append('svg')
+                    .attr('width', w)
+                    .attr('height', h)
+                    .style('fill', '#0984e3')
+                    //css
+                    .style('background', '#dfe6e9')
+                    .style('border-radius', '2%')
+                    .style('padding-top', '20px')
+                    .style('border', '4px solid black')
+                    .style('box-shadow', '10px 10px 25px rgb(44, 57, 58)');
+
+        svg.append('g').selectAll('rect')
+                       .data(monthlyVariance)
+                       .enter()
+                       .append('rect')
+                       .attr('class', 'cell')
+                       .attr('data-month', function(d){return d.month})
+                       .attr('data-year', function(d){return d.year})
+                       .attr('data-temp', function(d){return d.variance})
+                       .attr('x', function(d){return xScale(d.year)})
+                       .attr('y', function(d){return yScale(d.month)})
+                       .attr('width', innerW/monthlyVariance.length + 4)
+                       .attr('height', innerH/12)
+                       .style('fill', function(d){return colorScale(d.variance)})
+                       .attr('transform', 'translate(75, 2)')//fix for top, also applied in the axis below
+                       //tooltip
+                       .on("mouseover", function(d) {
+                            //d is the event object in this case, not the dataset
+                            //grab date, value by ref the attributes
+                            //Create the tooltip label
+                            svg.append("text")
+                            .attr("id", "tooltip")
+                            .attr("x", 400)
+                            .attr("y", 475)
+                            //.attr("text-anchor", "middle")
+                            //.attr("font-family", "Roboto Mono")
+                            .attr("font-size", "11px")
+                            .attr("font-weight", "bold")
+                            .attr("fill", "black")
+                            .attr('data-year', d3.select(this).attr('data-year'))
+                            .text('MONTH: ' + d3.select(this).attr('data-month')+ ' | YEAR: ' + d3.select(this).attr('data-year')+ ' | VARIANCE: ' + d3.select(this).attr('data-temp'));
+                        })//on mouseover
+                        .on("mouseout", function() {
+                            //Remove the tooltip
+                            d3.select("#tooltip").remove();
+                        })//on mouseout 
+                      
+        
+        svg.append('g')
+            .call(xAxis)//fix for top, also applied in the rects above (the 20 px)
+            .attr('transform', 'translate('+m.left+','+(innerH+35)+')').attr('id', 'x-axis');
+        svg.append('g')
+            .call(yAxis)//fix for top, also applied in the rects above (the 20 px)
+            .attr('transform', 'translate('+m.left+', 20)').attr('id', 'y-axis');
+        
+       
+        
+        
+        var legendContainer = svg.append('g').attr('id', 'legend');
+        legendContainer.append('rect')
+           .attr('width', 20)
+           .attr('height', 20)
+           .attr('x', m.left)
+           .attr('y', 460)
+           .style('fill', 'black')
+           .attr('id', 'legendRect');
+        legendContainer.append('rect')
+           .attr('width', 20)
+           .attr('height', 20)
+           .attr('x', m.left + 22)
+           .attr('y', 460)
+           .style('fill', 'rgb(82, 82, 82)')
+           .attr('id', 'legendRect');
+        legendContainer.append('rect')
+           .attr('width', 20)
+           .attr('height', 20)
+           .attr('x', m.left + 44)
+           .attr('y', 460)
+           .style('fill', 'rgb(124, 124, 124)')
+           .attr('id', 'legendRect');
+        legendContainer.append('rect')
+           .attr('width', 20)
+           .attr('height', 20)
+           .attr('x', m.left + 66)
+           .attr('y', 460)
+           .style('fill', 'white')
+           .attr('id', 'legendRect');
+
+        legendContainer.append('text')
+            .attr('x', m.left - 45)
+            .attr('y', 475)
+            .text(minVariance)
+            .attr('font-size', "10px")
+            .style('fill', '#000000')
+            .attr("font-weight", "bold");
+        
+        legendContainer.append('text')
+            .attr('x', m.left + 90)
+            .attr('y', 475)
+            .text('+' + maxVariance)
+            .attr('font-size', "10px")
+            .style('fill', '#000000')
+            .attr("font-weight", "bold");
+            
+
+        var axisLabels = svg.append('g');
+        axisLabels.append('text')
+            .attr('x', -60)
+            .attr('y', 15)
+            .attr('transform', 'rotate(-90)')
+            .text('Months')
+            .style("font-size", "11px")
+            .style("font-weight", "bold")
+            .style('fill', 'black');
+
+        svg.append('text')
+            .attr('x', 900)
+            .attr('y', 475)
+            .text('Years')
+            .attr("font-size", "11px")
+            .attr("font-weight", "bold")
+            .style('fill', '#000000'); 
+
+        
+    }//doStuff
+
+
+</script>
